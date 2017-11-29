@@ -1,0 +1,83 @@
+---
+# tasks file for ops
+- name: APT install
+  with_items:
+      - git
+      - unzip
+      - python-dev
+      - python-pip
+      - python-cffi
+      - libssl-dev
+      - libffi-dev
+      - python-openssl
+      - python-urllib3
+      - python-pyasn1
+  apt:
+      name: '{{ item }}'
+      state: present
+      update_cache: yes
+      cache_valid_time: 3600
+
+- name: Upgrade setuptools
+  tags: [skip_ansible_lint] # TODO: Instead use the python27 role.
+  with_items:
+      - pip
+      - setuptools==23.1
+  pip:
+      name: '{{ item }}'
+      state: latest
+
+- name: pip install
+  with_items:
+      - ansible==2.1.1.0
+      - ndg-httpsclient
+      - testinfra
+      - boto
+      - awscli
+  pip:
+      name: '{{ item }}'
+      state: present
+
+- name: Create sudoers group
+  group:
+      name: sudoers
+      state: present
+
+- name: Create sudoers.d directory
+  file:
+      path: /etc/sudoers.d
+      state: directory
+      owner: root
+      group: root
+      mode: '0755'
+
+- name: Include sudoers.d/*
+  lineinfile:
+      dest: /etc/sudoers
+      line: '#includedir /etc/sudoers.d'
+      state: present
+
+- name: Allow sudo without password to sudoers
+  lineinfile:
+      dest: '/etc/sudoers.d/50_sudoers'
+      line: '%sudoers ALL=(ALL) NOPASSWD: ALL'
+      regexp: '^%sudoers'
+      state: present
+      create: yes
+
+- name: Add vault password file
+  become: no
+  copy:
+      content: '{{ vault_password }}'
+      dest: '/home/{{ ansible_ssh_user }}/.ansible-vault-password-dev.txt'
+      owner: '{{ ansible_ssh_user }}'
+      group: '{{ ansible_ssh_user }}'
+      mode: 0o0400
+
+- name: Add vault password environment variable
+  become: no
+  lineinfile:
+      dest: '/home/{{ ansible_ssh_user }}/.bashrc'
+      line: 'export ANSIBLE_VAULT_PASSWORD_FILE=$HOME/.ansible-vault-password-dev.txt'
+      regexp: 'export ANSIBLE_VAULT_PASSWORD_FILE='
+      state: present

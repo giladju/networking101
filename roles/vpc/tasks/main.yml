@@ -1,0 +1,160 @@
+---
+# tasks file for vpc
+- name: Assertions
+  assert:
+      that:
+          - region is defined
+          - envname is defined
+          - cidr_block is defined
+          - subnets is iterable
+          - instances is iterable
+          - public_key is defined
+          - availability_zone is defined
+            #- routing_tables is iterable
+          - security_groups is iterable
+          - instances is iterable
+
+# This task comes early because the roles sometimes don't appear until some
+# time has passed since the task finished.
+- name: Create IAM roles
+  with_items: '{{ instances|selectattr("role")|list }}'
+  iam:
+      iam_type: role
+      name: '{{ envname }}_{{ item.role }}'
+      state: present
+
+- name: Create VPC
+  ec2_vpc:
+    region: "{{ region }}"
+    state: present
+    cidr_block: '{{ cidr_block }}'
+    resource_tags:
+        environment: '{{ envname }}'
+        Name: '{{ envname }}'
+    internet_gateway: True
+    wait: yes
+  register: ec2_vpc
+
+- name: VPC ID
+  debug:
+    var: ec2_vpc.vpc_id
+
+- name: Create subnets
+  with_dict: '{{ subnets }}'
+  ec2_vpc_subnet:
+      state: present
+      region: '{{ region }}'
+      vpc_id: '{{ ec2_vpc.vpc_id }}'
+      cidr: '{{ item.value }}'
+      az: '{{ availability_zone }}'
+      resource_tags:
+          Name: '{{ envname }}_{{ item.key }}'
+          net: '{{ item.key }}'
+          environment: '{{ envname }}'
+  register: vpc_subnet
+
+- name: Create security groups
+  with_items: '{{ security_groups }}'
+  ec2_group:
+      description: '{{ item.description }}'
+      name: '{{ item.name }}'
+      vpc_id: '{{ ec2_vpc.vpc_id }}'
+      region: '{{ region }}'
+      state: present
+      rules: '{{ item.rules|default(omit) }}'
+  register: ec2_security_groups
+
+- name: Create SSH keypair
+  ec2_key:
+      region: '{{ region }}'
+      name: 'ansible-{{ envname }}'
+      key_material: '{{ public_key }}'
+      state: present
+
+- name: Create NAT instance
+  ec2:
+      termination_protection: yes
+      region: '{{ region }}'
+      keypair: 'ansible-{{ envname }}'
+      image: ami-ef76e898 # amzn-ami-vpc-nat-hvm-2015.03.0.x86_64-ebs
+      instance_type: t2.small
+      instance_tags:
+          Name: '{{ envname }}_nat'
+          environment: '{{ envname }}'
+          role: 'nat'
+      count_tag:
+          role: 'nat'
+          environment: '{{ envname }}'
+      exact_count: 1
+      vpc_subnet_id: "{{ (vpc_subnet.results|selectattr('subnet.tags.net', 'equalto', 'public')|first).subnet.id }}"
+      assign_public_ip: True
+      wait: yes
+      wait_timeout: 600
+      source_dest_check: False
+      group: allow_vpc
+  register: nat_instance
+
+- name: Create routing tables
+  with_items: '{{ routing_tables }}'
+  ec2_vpc_route_table:
+    vpc_id: "{{ ec2_vpc.vpc_id }}"
+    region: "{{ region }}"
+    tags:
+      Name: '{{ envname }}_{{ item.subnet }}_route'
+      environment: '{{ envname }}'
+      net: '{{ item.subnet }}'
+    subnets: ["{{ (vpc_subnet.results|selectattr('subnet.tags.net', 'equalto', item.subnet)|first).subnet.id }}"]
+    routes: '{{ item.routes }}'
+  register: routing_tables
+
+- name: Create load-balancers
+  with_items: '{{ instances|selectattr("loadbalancer", "defined")|selectattr("loadbalancer")|list }}'
+  ec2_elb_lb:
+      name: '{{ envname }}-{{ item.role }}'
+      region: '{{ region }}'
+      state: present
+      subnets: ["{{ (vpc_subnet.results|selectattr('subnet.tags.net', 'equalto', 'public')|first).subnet.id }}"]
+      #security_group_names: [web_lb, allow_vpc]
+      # changed to one below because of a bug in Ansible 2.1.x.
+      security_group_ids:
+          - '{{ (ec2_security_groups.results|selectattr("invocation.module_args.name", "equalto", "allow_vpc")|first).group_id }}'
+          - '{{ (ec2_security_groups.results|selectattr("invocation.module_args.name", "equalto", "web_lb")|first).group_id }}'
+      wait: True
+      listeners:
+          - protocol: http
+            load_balancer_port: 80
+            instance_port: 80
+            proxy_protocol: True
+      ### Uncomment-out this  section when you have a ssl_certificate_id from AWS
+      #    - protocol: https
+      #      load_balancer_port: 443
+      #      instance_port: 443
+      #      proxy_protocol: True
+      #      ssl_certificate_id: arn:aws:acm:eu-west-1:{{ awscustomerid }}:certificate/{{ awscertificateid }}
+
+- name: Create instances
+  with_items: '{{ instances }}'
+  ec2:
+      region: '{{ region }}'
+      keypair: 'ansible-{{ envname }}'
+      instance_type: '{{ item.type }}'
+      image: '{{ item.image|default(ami) }}'
+      groups: '{{ item.groups|default(["allow_vpc"]) }}'
+      instance_tags:
+          Name: '{{ envname }}_{{ item.role }}'
+          environment: '{{ envname }}'
+          role: '{{ item.role }}'
+      count_tag:
+          role: '{{ item.role }}'
+          environment: '{{ envname }}'
+      exact_count: '{{ item.count|default("1") }}'
+      vpc_subnet_id: "{{ (vpc_subnet.results|selectattr('subnet.tags.net', 'equalto', item.subnet)|first).subnet.id }}"
+      assign_public_ip: '{{ item.subnet == "public" }}'
+      wait: yes
+      wait_timeout: 600
+      instance_profile_name: '{{ envname }}_{{ item.role }}'
+      source_dest_check: '{{ item.source_dest_check|default(omit) }}'
+      volumes: '{{ item.volumes|default(omit) }}'
+      ebs_optimized: '{{ item.ebs_optimized|default(False) }}'
+      user_data: '{{ item.user_data|default(omit) }}'
+  register: ec2_instances

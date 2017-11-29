@@ -1,0 +1,59 @@
+---
+# defaults file for vpc
+ami: 'ami-ed82e39e'
+public_key: '{{ id_rsa_project_ansible_pub }}'
+availability_zone: '{{ region }}'
+#instances:
+#    - role:
+#      type:
+#      image:
+#      count:
+#      subnet:
+#      source_dest_check:
+#      volumes:
+#      loadbalancer:
+#      groups:
+routing_tables:
+    - subnet: public
+      routes:
+          - dest: '{{ cidr_block }}'
+            gateway_id: local
+          - dest: '0.0.0.0/0'
+            gateway_id: "{{ ec2_vpc.igw_id }}"
+    - subnet: private
+      routes:
+          - dest: "{{ cidr_block }}"
+            gateway_id: local
+          - dest: "0.0.0.0/0"
+            instance_id: "{{ nat_instance.tagged_instances.0.id }}"
+security_groups:
+    - description: Allow all from this VPC
+      name: allow_vpc
+      rules:
+          - proto: all
+            group_name: allow_vpc
+    - description: Allow SSH
+      name: allow_ssh
+      rules:
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: 0.0.0.0/0
+    - description: Allow all from office
+      name: allow_office
+      rules:
+          - proto: all
+            cidr_ip: "{{ office_ip }}/32" # office IP.
+          # - proto: all
+          #   cidr_ip: 111.111.111.111/32 # Someone's IP at home.
+    - description: Web load balancer
+      name: web_lb
+      rules:
+          - proto: tcp
+            cidr_ip: 0.0.0.0/0
+            from_port: 80
+            to_port: 80
+          - proto: tcp
+            cidr_ip: 0.0.0.0/0
+            from_port: 443
+            to_port: 443
