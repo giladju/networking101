@@ -1,1 +1,89 @@
-main.yml
+- name: Get VPC facts
+  ec2_vpc_net_facts:
+      region: '{{ region }}'
+      filters:
+          "tag:environment": '{{ envname }}'
+  register: vpc_facts
+
+- name: VPC ID
+  debug:
+      var: vpc
+
+- name: Get ELB facts
+  ec2_elb_facts:
+      region: '{{ region }}'
+  register: elb_facts
+
+- name: Get EC2 instances facts
+  ec2_remote_facts:
+      region: '{{ region }}'
+      filters:
+          vpc-id: '{{ vpc }}'
+  register: ec2_instance_facts
+
+- name: Get EC2 volumes facts
+  ec2_vol_facts:
+      region: '{{ region }}'
+  register: ec2_volume_facts
+
+- name: Get VPC subnets facts
+  ec2_vpc_subnet_facts:
+      region: '{{ region }}'
+      filters:
+          vpc-id: '{{ vpc }}'
+  register: vpc_subnet_facts
+
+- name: Get VPC routing tables facts
+  ec2_vpc_route_table_facts:
+      region: '{{ region }}'
+      filters:
+          vpc-id: '{{ vpc }}'
+  register: route_table_facts
+
+- name: Remove ELBs
+  with_items: '{{ elb_facts.elbs|selectattr("vpc_id", "equalto", vpc)|list }}'
+  ec2_elb_lb:
+      region: '{{ region }}'
+      name: '{{ item.name }}'
+      state: absent
+      wait: True
+      wait_timeout: 300
+
+- name: Remove instances
+  when: instance_ids|length > 0
+  ec2:
+      instance_ids: '{{ instance_ids }}'
+      state: absent
+      region: '{{ region }}'
+      wait: True
+      wait_timeout: 600
+
+- name: Remove volumes
+  with_items: '{{ ec2_volume_facts.volumes }}'
+  when: item.attachment_set.instance_id in instance_ids
+  ec2_vol:
+      region: '{{ region }}'
+      state: absent
+      id: '{{ item.id }}'
+
+- name: Remove routing tables
+  with_items: '{{ route_table_facts.route_tables }}'
+  ec2_vpc_route_table:
+      region: '{{ region }}'
+      route_table_id: '{{ item.id }}'
+      state: absent
+      vpc_id: '{{ vpc }}'
+
+- name: Remove internet gateway
+  ec2_vpc_igw:
+      region: '{{ region }}'
+      vpc_id: '{{ vpc }}'
+      state: absent
+
+- name: Remove subnets
+  with_items: '{{ vpc_subnet_facts.subnets }}'
+  ec2_vpc_subnet:
+      state: absent
+      region: '{{ region }}'
+      vpc_id: '{{ vpc }}'
+      cidr: '{{ item.cidr_block }}'
