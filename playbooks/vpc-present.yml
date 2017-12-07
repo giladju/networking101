@@ -3,5 +3,5 @@
   connection: local
   become: False
   gather_facts: False
-  roles: [vpc]
-  tags: [vpc]
+  roles: 
+    - vpc
