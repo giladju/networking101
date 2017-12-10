@@ -1,21 +1,4 @@
 ---
-# defaults file for networking 101 system
-aws_account_num: "{{ vault_aws_account_num }}"
-public_key: '{{ envname }}'
-region: eu-west-1
-cidr_block: "10.1.0.0/16"
-b_class_cidr: "{{ cidr_block.split('.')[0] }}.{{ cidr_block.split('.')[1] }}"
-###############################################
-env_instance_type: t2.micro
-default_num_of_instances: 1
-###############################################
-vpn_instance_type: "{{ env_instance_type }}"
-vpn_ami: "ami-xxxxx"
-###############################################
-webserver_instance_type: "{{ env_instance_type }}"
-webserver_ami: "ami-xxxxx"
-webserver_num_of_instances: "{{ default_num_of_instances }}"
-###############################################
 subnets:
  public:
    subnet_name: "public-{{ envname }}"
@@ -37,31 +20,68 @@ subnets:
  #   subnet_name: "rds-{{ envname }}"
  #   ipv4_cidr: "{{ b_class_cidr }}.5.0/24"
  #   availability_zone: "{{ region }}b"
+routing_tables:
+    - subnet: public
+      routes:
+          - dest: '{{ cidr_block }}'
+            gateway_id: local
+          - dest: '0.0.0.0/0'
+            gateway_id: "{{ ec2_vpc.igw_id }}"
+    - subnet: private
+      routes:
+          - dest: "{{ cidr_block }}"
+            gateway_id: local
+          - dest: "0.0.0.0/0"
+            instance_id: "{{ nat_instance.tagged_instances.0.id }}"
+security_groups:
+    - description: Allow all from this VPC
+      name: allow_vpc
+      rules:
+          - proto: all
+            group_name: allow_vpc
+    - description: Allow SSH
+      name: allow_ssh
+      rules:
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: 0.0.0.0/0
+    - description: Allow all from office
+      name: allow_office
+      rules:
+          - proto: all
+            cidr_ip: "{{ office_ip }}/32" # office IP.
+          # - proto: all
+          #   cidr_ip: 111.111.111.111/32 # Someone's IP at home.
+    - description: Web load balancer
+      name: web_lb
+      rules:
+          - proto: tcp
+            cidr_ip: 0.0.0.0/0
+            from_port: 80
+            to_port: 80
+          - proto: tcp
+            cidr_ip: 0.0.0.0/0
+            from_port: 443
+            to_port: 443
+
+# defaults file for networking 101 system
+aws_account_num: "{{ vault_aws_account_num }}"
+private_key: '{{ vault_private_key }}'
+b_class_cidr: "{{ cidr_block.split('.')[0] }}.{{ cidr_block.split('.')[1] }}"
+###############################################
+env_instance_type: t2.micro
+default_num_of_instances: 1
+###############################################
+vpn_instance_type: "{{ env_instance_type }}"
+vpn_ami: "ami-xxxxx"
+###############################################
+webserver_instance_type: "{{ env_instance_type }}"
+webserver_ami: "ami-xxxxx"
+webserver_num_of_instances: "{{ default_num_of_instances }}"
+###############################################
 services:
   - name: webservice
     type: "{{ webserver_instance_type }}"
     extelb: True
     num_of_instances: "{{ webserver_num_of_instances }}"
-# ansible varialbes for infra security groups
-# sg_infra_default_vpn_ssh: sg-0a35fa72
-# sg_infra_vpn: sg-2462ad5c
-###################################################
-#security_groups:
-   - description: Allow SSH from VPN
-     name: "{{ envname }}_allow_ssh_from_vpn"
-     rules:
-         - proto: tcp
-           from_port: 22
-           to_port: 22
-           group_id: "{{ sg_infra_vpn }}"
-   - description: Allow 80 from VPN
-     name: "{{ envname }}_allow_from_vpn"
-     rules:
-         - proto: tcp
-           from_port: 80
-           to_port: 80
-           group_id: "{{ sg_infra_vpn }}"
-#################################################################
-aws_access_key: "{{ vault_aws_access_key }}"
-aws_secret_access_key: "{{ vault_aws_secret_access_key }}"
-#################################################################

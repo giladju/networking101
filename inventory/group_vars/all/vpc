@@ -1,7 +1,7 @@
 ---
 envname: networking101
-region: eu-west-1
-availability_zone: eu-west-1a
+region: eu-central-1
+availability_zone: eu-central-1a
 cidr_block: 172.39.0.0/16
 subnets:
     public: 172.39.100.0/24
