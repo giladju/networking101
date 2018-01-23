@@ -7,15 +7,6 @@ subnets:
     public: 172.39.100.0/24
     private: 172.39.200.0/24
 instances:
-    - role: vpn
-      subnet: public
-      type: t2.small
-      public_ip: True
-      volumes:
-          - device_name: /dev/sda1
-            volume_size: 8
-      groups:
-        - allow_ssh
     - role: webserver
       subnet: private
       type: t2.micro

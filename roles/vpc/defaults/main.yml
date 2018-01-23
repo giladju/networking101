@@ -1,0 +1,41 @@
+---
+# defaults file for vpc
+availability_zone: "{{ region }}a"
+routing_tables:
+  - subnet: public
+    routes:
+      - dest: "{{ cidr_block }}"
+        gateway_id: local
+      - dest: "0.0.0.0/0"
+        gateway_id: "{{ tikal_current_vpc_igw_facts.gateway_id }}"
+  - subnet: private
+    routes:
+      - dest: "{{ cidr_block }}"
+        gateway_id: local
+      - dest: "0.0.0.0/0"
+        gateway_id: "{{ nat_gateway.nat_gateway_id }}"
+security_groups:
+  - description: Allow all from this VPC
+    name: allow_vpc
+    rules:
+      - proto: all
+        group_name: allow_vpc
+  - description: Allow SSH
+    name: allow_ssh
+    rules:
+      - proto: tcp
+        from_port: 22
+        to_port: 22
+        cidr_ip: 0.0.0.0/0
+  - description: Allow all from office
+    name: allow_office
+    rules:
+      - proto: all
+        cidr_ip: "{{ office_ip }}/32" # office IP.
+  - description: Web load balancer
+    name: web_lb
+    rules:
+      - proto: tcp
+        cidr_ip: 0.0.0.0/0
+        from_port: 80
+        to_port: 80

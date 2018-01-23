@@ -5,7 +5,3 @@
   gather_facts: False
   roles:
     - vpc-remove
-
-  vars:
-      vpc: '{{ vpc_facts.vpcs.0.id }}'
-      instance_ids: '{{ ec2_instance_facts.instances|map(attribute="id")|list }}'

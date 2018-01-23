@@ -1,89 +1,58 @@
-- name: Get VPC facts
+---
+- name: get vpcs facts
   ec2_vpc_net_facts:
-      region: '{{ region }}'
-      filters:
-          "tag:environment": '{{ envname }}'
-  register: vpc_facts
-
-- name: VPC ID
-  debug:
-      var: vpc
-
-- name: Get ELB facts
-  ec2_elb_facts:
-      region: '{{ region }}'
-  register: elb_facts
-
-- name: Get EC2 instances facts
-  ec2_remote_facts:
-      region: '{{ region }}'
-      filters:
-          vpc-id: '{{ vpc }}'
-  register: ec2_instance_facts
-
-- name: Get EC2 volumes facts
-  ec2_vol_facts:
-      region: '{{ region }}'
-  register: ec2_volume_facts
-
-- name: Get VPC subnets facts
+    region: "{{ region }}"
+  register: tikal_ec2_vpc_net_facts
+- name: set fact current vpc id
+  set_fact:
+    current_vpc_id: "{{ tikal_ec2_vpc_net_facts.vpcs | list | selectattr('tags.Name', 'equalto', envname)| map(attribute='id')| list }}"
+- debug:
+    var: current_vpc_id
+- name: set fact current vpc cidr block
+  set_fact:
+    current_vpc_cidr_block: "{{ tikal_ec2_vpc_net_facts.vpcs | list | selectattr('tags.Name', 'equalto', envname)| map(attribute='cidr_block')| list }}"
+- name: get facts current vpc nat gateway
+  ec2_vpc_nat_gateway_facts:
+    region: "{{ region }}"
+    filters:
+      vpc-id: "{{ current_vpc_id }}"
+  register: current_vpc_nat_gateway
+- name: delete current vpc nat gateway
+  ec2_vpc_nat_gateway:
+    region: "{{ region }}"
+    nat_gateway_id: "{{ current_vpc_nat_gateway.result[0].nat_gateway_id }}"
+    state: absent
+    wait: yes
+- name: get facts ec2_vpc_subnet_facts
   ec2_vpc_subnet_facts:
-      region: '{{ region }}'
-      filters:
-          vpc-id: '{{ vpc }}'
-  register: vpc_subnet_facts
-
-- name: Get VPC routing tables facts
+    region: "{{ region }}"
+    filters:
+      vpc-id: "{{ current_vpc_id }}"
+  register: current_vpc_subnets
+- name: delete current vpc subnets
+  local_action:
+    module: ec2_vpc_subnet
+    region: "{{ region }}"
+    vpc_id: "{{ current_vpc_id }}"
+    cidr: "{{ item.cidr_block }}"
+    state: absent
+  with_items: "{{ current_vpc_subnets.subnets }}"
+- name: get facts current vpc routing tables
   ec2_vpc_route_table_facts:
-      region: '{{ region }}'
-      filters:
-          vpc-id: '{{ vpc }}'
-  register: route_table_facts
-
-- name: Remove ELBs
-  with_items: '{{ elb_facts.elbs|selectattr("vpc_id", "equalto", vpc)|list }}'
-  ec2_elb_lb:
-      region: '{{ region }}'
-      name: '{{ item.name }}'
-      state: absent
-      wait: True
-      wait_timeout: 300
-
-- name: Remove instances
-  when: instance_ids|length > 0
-  ec2:
-      instance_ids: '{{ instance_ids }}'
-      state: absent
-      region: '{{ region }}'
-      wait: True
-      wait_timeout: 600
-
-- name: Remove volumes
-  with_items: '{{ ec2_volume_facts.volumes }}'
-  when: item.attachment_set.instance_id in instance_ids
-  ec2_vol:
-      region: '{{ region }}'
-      state: absent
-      id: '{{ item.id }}'
-
-- name: Remove routing tables
-  with_items: '{{ route_table_facts.route_tables }}'
+    region: "{{ region }}"
+    filters:
+      vpc-id: "{{ current_vpc_id }}"
+  register: current_vpc_routing_tables
+- name: delete routing tables in current vpc
   ec2_vpc_route_table:
-      region: '{{ region }}'
-      route_table_id: '{{ item.id }}'
-      state: absent
-      vpc_id: '{{ vpc }}'
-
-- name: Remove internet gateway
-  ec2_vpc_igw:
-      region: '{{ region }}'
-      vpc_id: '{{ vpc }}'
-      state: absent
-
-- name: Remove subnets
-  with_items: '{{ vpc_subnet_facts.subnets }}'
-  ec2_vpc_subnet:
-      state: absent
-      region: '{{ region }}'
-      vpc_id: '{{ vpc }}'
-      cidr: '{{ item.cidr_block }}'
+    region: "{{ region }}"
+    route_table_id: "{{ item.id }}"
+    vpc_id: "{{ current_vpc_id }}"
+    state: absent
+  with_items: "{{ current_vpc_routing_tables.route_tables }}"
+- name: delete VPC
+  ec2_vpc_net:
+    region: "{{ region }}"
+    cidr_block: "{{ current_vpc_cidr_block }}"
+    name: "{{ envname }}"
+    state: absent

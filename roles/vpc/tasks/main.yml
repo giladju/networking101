@@ -1,9 +1,5 @@
 ---
 # tasks file for vpc
-- name: register public key
-  command: "ssh-keygen -y -f ssh/id_rsa_ansible"
-  register: public_key
-
 - name: Assertions
   assert:
       that:
@@ -11,142 +7,79 @@
           - envname is defined
           - cidr_block is defined
           - subnets is iterable
-          - instances is iterable
-          - public_key is defined
           - availability_zone is defined
-            #- routing_tables is iterable
+          # - routing_tables is iterable
           - security_groups is iterable
-          - instances is iterable
-
 - name: Create VPC
-  ec2_vpc:
+  ec2_vpc_net:
     region: "{{ region }}"
     state: present
     cidr_block: '{{ cidr_block }}'
-    resource_tags:
+    name: '{{ envname }}'
+    tags:
         environment: '{{ envname }}'
         Name: '{{ envname }}'
-    internet_gateway: True
-    wait: yes
-  register: ec2_vpc
-
-- name: VPC ID
-  debug:
-    var: ec2_vpc.vpc_id
-
+  register: tikal_current_vpc
+- name: create default internet gateway
+  ec2_vpc_igw:
+    region: "{{ region }}"
+    vpc_id: '{{ tikal_current_vpc.vpc.id }}'
+  register: tikal_current_vpc_igw_facts
 - name: Create subnets
   with_dict: '{{ subnets }}'
   ec2_vpc_subnet:
       state: present
       region: '{{ region }}'
-      vpc_id: '{{ ec2_vpc.vpc_id }}'
+      vpc_id: '{{ tikal_current_vpc.vpc.id }}'
       cidr: '{{ item.value }}'
       az: '{{ availability_zone }}'
-      resource_tags:
+      tags:
           Name: '{{ envname }}_{{ item.key }}'
           net: '{{ item.key }}'
           environment: '{{ envname }}'
-  register: vpc_subnet
-
-- name: Create security groups
-  with_items: '{{ security_groups }}'
-  ec2_group:
-      description: '{{ item.description }}'
-      name: '{{ item.name }}'
-      vpc_id: '{{ ec2_vpc.vpc_id }}'
-      region: '{{ region }}'
-      state: present
-      rules: '{{ item.rules|default(omit) }}'
-  register: ec2_security_groups
-
-- name: print public key 
-  debug:
-    msg: "{{ public_key }}"
-
-- name: Create SSH keypair
-  ec2_key:
-      region: '{{ region }}'
-      name: 'ansible-{{ envname }}'
-      key_material: '{{ public_key.stdout }}'
-      state: present
-
-
-- name: allocate a new elastic IP inside a VPC in us-west-2
-  ec2_eip:
+- name: gather subnet facts 
+  ec2_vpc_subnet_facts:
     region: "{{ region }}"
-    in_vpc: yes
-  register: eip
-
-
-- name: Create NAT internet gateway
+    filters:
+      vpc_id: '{{ tikal_current_vpc.vpc.id }}'
+  register: tikal_ec2_vpc_subnet_facts 
+- name: set_fact current id of public subnet
+  set_fact:
+    nat_public_subnet: "{{ (tikal_ec2_vpc_subnet_facts.subnets | selectattr('tags.net', 'equalto', 'public')|first).id }}"
+- name: Create new nat gateway
   ec2_vpc_nat_gateway:
     state: present
-    subnet_id: "{{ public_subnet }}"
-    eip_address: "{{ eip }}"
+    subnet_id: "{{ nat_public_subnet }}"
     region: "{{ region }}"
+    wait: yes
+    if_exist_do_not_create: true
   register: nat_gateway
-
+- name: get vpcs facts
+  ec2_vpc_net_facts:
+    region: "{{ region }}"
+  register: tikal_ec2_vpc_net_facts
+- name: set fact current vpc id
+  set_fact:
+    current_vpc_id: "{{ tikal_ec2_vpc_net_facts.vpcs | list | selectattr('tags.environment', 'equalto', envname)| map(attribute='id') }}"
 - name: Create routing tables
   with_items: '{{ routing_tables }}'
   ec2_vpc_route_table:
-    vpc_id: "{{ ec2_vpc.vpc_id }}"
+    vpc_id: "{{ tikal_current_vpc.vpc.id }}"
     region: "{{ region }}"
     tags:
       Name: '{{ envname }}_{{ item.subnet }}_route'
       environment: '{{ envname }}'
       net: '{{ item.subnet }}'
-    subnets: ["{{ (vpc_subnet.results|selectattr('subnet.tags.net', 'equalto', item.subnet)|first).subnet.id }}"]
+    subnets: ["{{ (tikal_ec2_vpc_subnet_facts.subnets|selectattr('tags.net', 'equalto', item.subnet)|first).id }}"]
     routes: '{{ item.routes }}'
   register: routing_tables
-
-- name: Create load-balancers
-  with_items: '{{ instances|selectattr("loadbalancer", "defined")|selectattr("loadbalancer")|list }}'
-  ec2_elb_lb:
-      name: '{{ envname }}-{{ item.role }}'
+- name: Create security groups
+  with_items: '{{ security_groups }}'
+  ec2_group:
+      description: '{{ item.description }}'
+      name: '{{ item.name }}'
+      vpc_id: '{{ tikal_current_vpc.vpc.id }}'
       region: '{{ region }}'
       state: present
-      subnets: ["{{ (vpc_subnet.results|selectattr('subnet.tags.net', 'equalto', 'public')|first).subnet.id }}"]
-      #security_group_names: [web_lb, allow_vpc]
-      # changed to one below because of a bug in Ansible 2.1.x.
-      security_group_ids:
-          - '{{ (ec2_security_groups.results|selectattr("invocation.module_args.name", "equalto", "allow_vpc")|first).group_id }}'
-          - '{{ (ec2_security_groups.results|selectattr("invocation.module_args.name", "equalto", "web_lb")|first).group_id }}'
-      wait: True
-      listeners:
-          - protocol: http
-            load_balancer_port: 80
-            instance_port: 80
-            proxy_protocol: True
-      ### Uncomment-out this  section when you have a ssl_certificate_id from AWS
-      #    - protocol: https
-      #      load_balancer_port: 443
-      #      instance_port: 443
-      #      proxy_protocol: True
-      #      ssl_certificate_id: arn:aws:acm:eu-west-1:{{ awscustomerid }}:certificate/{{ awscertificateid }}
+      rules: '{{ item.rules|default(omit) }}'
 
-- name: Create instances
-  with_items: '{{ instances }}'
-  ec2:
-      region: '{{ region }}'
-      keypair: 'ansible-{{ envname }}'
-      instance_type: '{{ item.type }}'
-      image: '{{ item.image|default(ami) }}'
-      groups: '{{ item.groups|default(["allow_vpc"]) }}'
-      instance_tags:
-          Name: '{{ envname }}_{{ item.role }}'
-          environment: '{{ envname }}'
-          role: '{{ item.role }}'
-      count_tag:
-          role: '{{ item.role }}'
-          environment: '{{ envname }}'
-      exact_count: '{{ item.count|default("1") }}'
-      vpc_subnet_id: "{{ (vpc_subnet.results|selectattr('subnet.tags.net', 'equalto', item.subnet)|first).subnet.id }}"
-      assign_public_ip: '{{ item.subnet == "public" }}'
-      wait: yes
-      wait_timeout: 600
-      instance_profile_name: '{{ envname }}_{{ item.role }}'
-      source_dest_check: '{{ item.source_dest_check|default(omit) }}'
-      volumes: '{{ item.volumes|default(omit) }}'
-      ebs_optimized: '{{ item.ebs_optimized|default(False) }}'
-      user_data: '{{ item.user_data|default(omit) }}'
-  register: ec2_instances

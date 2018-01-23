@@ -1,9 +1,7 @@
 ---
-- import_playbook: local-get-private-key.yml
-- hosts: localhost,
+- hosts: localhost
   connection: local
   become: False
   gather_facts: False
-  roles: 
-    - system-variables
+  roles:
     - vpc
