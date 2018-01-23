@@ -49,12 +49,13 @@
         role: '{{ item.role }}'
         environment: '{{ envname }}'
     exact_count: '{{ item.count|default("1") }}'
-    vpc_subnet_id: "{{ (current_vpc_subnets.subnets|selectattr('tags.net', 'equalto', 'private')|first).id }}"
+    vpc_subnet_id: "{{ (current_vpc_subnets.subnets|selectattr('tags.net', 'equalto', item.subnet)|first).id }}"
     wait: yes
     wait_timeout: 600
     volumes: '{{ item.volumes|default(omit) }}'
     user_data: '{{ item.userdata }}'
+    assign_public_ip: "{% if item.external_ip == 'True' %}yes{% else %}no{% endif %}"
   register: http_instance
 - name: wait for the http server to start
   pause:
-    seconds: 30
+    seconds: 120

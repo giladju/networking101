@@ -19,7 +19,20 @@ instances:
         - allow_ssh
         - allow_vpc
       loadbalancer: True
+      external_ip: 'False' 
       userdata: |
         #!/bin/bash
         apt update
         apt install -y apache2
+    - role: bastion
+      subnet: public
+      type: t2.micro
+      count: 1
+      volumes:
+          - device_name: /dev/sda1
+            volume_size: 8
+      groups:
+        - allow_ssh
+        - allow_vpc
+      external_ip: 'True' 
+      userdata: |

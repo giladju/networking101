@@ -6,31 +6,33 @@ Before starting make sure you are [prepared](./docs/preparation.md)
 
 All demo operations will be done on the AWS Console
 
-### Accessing the Instance via a VPN
+## The goal - setting up a web server 
 
-### Connecting to the VPN 
+[net.devops.tikal.io](http://somewhere)
 
-* What does it do?
-* What do you get?
+## We were told that everything is in place
 
-### Troubleshooting the SSH access to the instance via the VPN
+- VPC
+- Subnets
+- Routing tables
+- Load Balancer
+- Web Server
 
-* Correcting the Routing table - show SSH now works
+## But ...  nothing is working 
 
-`ssh -i playbooks/ssh/id_rsa_ansible ubuntu@<ip of instance>`
+### Accessing the Instance via a Bastion server
+
+1. why do we need a Bastion server
+2. Bastion? what is it?
+3. How to use it?
 
 ### Troubleshooting the HTTP access to the instance via the VPN
 
 * Correcting the Security groups - show HTTP now works
 
-`curl http://<ip of instance>`
+### Troubleshooting DNS 
 
-### Troubleshooting the External access from the instance 
-
-* Try to update the instance `sudo apt-get update` show it fails 
-* Fix the Routing table to allow exaternal access via the NAT service
-* show it now works
-
+* Correct the DNS entry in Route53
 ---
 ## Cleanup
 

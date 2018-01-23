@@ -1,0 +1,55 @@
+---
+- name: get vpcs facts
+  ec2_vpc_net_facts:
+    region: "{{ region }}"
+  register: tikal_ec2_vpc_net_facts
+- name: set fact current vpc id
+  set_fact:
+    current_vpc_id: "{{ tikal_ec2_vpc_net_facts.vpcs | list | selectattr('tags.Name', 'equalto', envname)| map(attribute='id')| list }}"
+- name: gather facts instances in vpc 
+  ec2_instance_facts:
+    region: "{{ region }}"
+    filters:
+      vpc-id: "{{ current_vpc_id }}"
+      "tag:Name": "{{ envname }}_webserver"
+  register: webserver_facts
+- name: set fact number of instances
+  set_fact:
+    num_of_instances: "{{ webserver_facts.instances | length }}"
+- name: terminate instance
+  ec2:
+    region: "{{ region }}"
+    id: "{{ webserver_facts.instances[0].instance_id }}" 
+    state: absent
+  when: num_of_instances != '0'
+- name: gather facts elb 
+  ec2_elb_facts:
+    region: "{{ region }}"
+    names: "{{ envname }}-webserver"
+  register: tikal_elb_facts
+- name: set fact number of elbs
+  set_fact:
+    num_of_elbs: "{{ tikal_elb_facts.elbs | length }}"
+- name: terminate elb
+  ec2_elb_lb:
+    region: "{{ region }}"
+    name: "{{ tikal_elb_facts.elbs[0].name }}"
+    state: absent
+  when: num_of_elbs != '0'
+- name: gather facts security groups 
+  ec2_group_facts:
+    filters:
+      vpc-id: "{{ current_vpc_id }}"
+    region: "{{ region }}"
+  register: tikal_ec2_security_groups
+- name: set fact number of security_groups
+  set_fact:
+    num_of_sgs: "{{ tikal_ec2_security_groups.security_groups | length }}"
+- name: delete security groups
+  ec2_group:
+    region: "{{ region }}"
+    group_id: "{{ item.group_id }}"
+    state: absent
+  with_items: "{{ tikal_ec2_security_groups.security_groups }}"
+  when: num_of_sgs != '0' 
+  ignore_errors: yes

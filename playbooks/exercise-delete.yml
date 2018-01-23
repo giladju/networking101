@@ -4,4 +4,5 @@
   become: False
   gather_facts: False
   roles:
+    - ec2-remove
     - vpc-remove

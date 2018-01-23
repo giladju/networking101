@@ -13,8 +13,6 @@
           vpc-id: "{{ current_vpc_id }}"
           "tag:Name": "{{ envname }}_webserver"
       register: webserver_facts
-    - debug:
-        var: webserver_facts
     - name: gather facts elb 
       ec2_elb_facts:
         region: "{{ region }}"

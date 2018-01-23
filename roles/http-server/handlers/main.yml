@@ -1,5 +1,0 @@
----
-# handlers file for ops
-- name: "restart http"
-  service: name=apache2 state=restarted
-  become: yes

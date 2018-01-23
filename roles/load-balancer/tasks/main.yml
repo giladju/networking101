@@ -6,24 +6,24 @@
 - name: set fact current vpc id
   set_fact:
     current_vpc_id: "{{ tikal_ec2_vpc_net_facts.vpcs | list | selectattr('tags.Name', 'equalto', envname)| map(attribute='id')| list }}"
-- debug:
-    var: current_vpc_id 
+# - debug:
+#     var: current_vpc_id 
 - name: get facts ec2_vpc_subnet_facts
   ec2_vpc_subnet_facts:
     region: "{{ region }}"
     filters:
       vpc-id: "{{ current_vpc_id }}"
   register: current_vpc_subnets    
-- debug:
-    var: current_vpc_subnets
+# - debug:
+#     var: current_vpc_subnets
 - name: gather facts security groups 
   ec2_group_facts:
     filters:
       vpc-id: "{{ current_vpc_id }}"
     region: "{{ region }}"
   register: tikal_ec2_security_groups
-- debug:
-    var: tikal_ec2_security_groups
+# - debug:
+#     var: tikal_ec2_security_groups
 - name: Create load-balancers
   with_items: '{{ instances|selectattr("loadbalancer", "defined")|selectattr("loadbalancer")|list }}'
   ec2_elb_lb:
@@ -35,6 +35,7 @@
     # changed to one below because of a bug in Ansible 2.1.x.
     security_group_ids:
       - '{{ (tikal_ec2_security_groups.security_groups|selectattr("group_name", "equalto", "web_lb")|first).group_id }}'
+      - '{{ (tikal_ec2_security_groups.security_groups|selectattr("group_name", "equalto", "allow_vpc")|first).group_id }}'
     wait: True
     listeners:
       - protocol: http
