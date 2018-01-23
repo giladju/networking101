@@ -1,12 +1,60 @@
 ---
-# tasks file for ops
-- name: APT install
-  with_items:
-      - unzip
-      - apache2
-  apt:
-      name: '{{ item }}'
-      state: present
-      update_cache: yes
-      cache_valid_time: 3600
-  notify: restart http
+- name: Create SSH keypair
+  ec2_key:
+    region: '{{ region }}'
+    name: 'ansible-{{ envname }}'
+    key_material: '{{ public_key }}'
+    state: present
+- name: get vpcs facts
+  ec2_vpc_net_facts:
+    region: "{{ region }}"
+  register: tikal_ec2_vpc_net_facts
+- name: set fact current vpc id
+  set_fact:
+    current_vpc_id: "{{ tikal_ec2_vpc_net_facts.vpcs | list | selectattr('tags.Name', 'equalto', envname)| map(attribute='id')| list }}"
+# - debug:
+#     var: current_vpc_id 
+- name: get facts ec2_vpc_subnet_facts
+  ec2_vpc_subnet_facts:
+    region: "{{ region }}"
+    filters:
+      vpc-id: "{{ current_vpc_id }}"
+  register: current_vpc_subnets    
+# - debug:
+#     var: current_vpc_subnets
+- name: gather facts security groups 
+  ec2_group_facts:
+    filters:
+      vpc-id: "{{ current_vpc_id }}"
+    region: "{{ region }}"
+  register: tikal_ec2_security_groups
+# - debug:
+#     var: tikal_ec2_security_groups
+- name: Create instances
+  with_items: '{{ instances }}'
+  ec2:
+    region: '{{ region }}'
+    keypair: 'ansible-{{ envname }}'
+    instance_type: '{{ item.type }}'
+    image: '{{ item.image|default(ami) }}'
+    groups: '{{ item.groups|default(["allow_vpc"]) }}'
+    # groups: 
+    #   - allow_ssh
+    #   - allow_vpc
+    instance_tags:
+        Name: '{{ envname }}_{{ item.role }}'
+        environment: '{{ envname }}'
+        role: '{{ item.role }}'
+    count_tag:
+        role: '{{ item.role }}'
+        environment: '{{ envname }}'
+    exact_count: '{{ item.count|default("1") }}'
+    vpc_subnet_id: "{{ (current_vpc_subnets.subnets|selectattr('tags.net', 'equalto', 'private')|first).id }}"
+    wait: yes
+    wait_timeout: 600
+    volumes: '{{ item.volumes|default(omit) }}'
+    user_data: '{{ item.userdata }}'
+  register: http_instance
+- name: wait for the http server to start
+  pause:
+    seconds: 30

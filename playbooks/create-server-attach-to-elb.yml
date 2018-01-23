@@ -1,0 +1,28 @@
+---
+- hosts: localhost
+  connection: local
+  become: False
+  gather_facts: False
+  roles:
+    - http-server
+  tasks:
+    - name: gather_facts ec2 instances in vpc
+      ec2_instance_facts:
+        region: "{{ region }}"
+        filters:
+          vpc-id: "{{ current_vpc_id }}"
+          "tag:Name": "{{ envname }}_webserver"
+      register: webserver_facts
+    - debug:
+        var: webserver_facts
+    - name: gather facts elb 
+      ec2_elb_facts:
+        region: "{{ region }}"
+        names: "{{ envname }}-webserver"
+      register: tikal_elb_facts
+    - name: register webserver to elb
+      ec2_elb:
+        region: "{{ region }}"
+        instance_id: "{{ webserver_facts.instances[0].instance_id }}"
+        ec2_elbs: "{{ tikal_elb_facts.elbs[0].name }}"
+        state: present

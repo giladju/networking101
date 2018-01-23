@@ -15,7 +15,7 @@
       vpc-id: "{{ current_vpc_id }}"
   register: current_vpc_subnets    
 - debug:
-    var: current_vpc_subnets    
+    var: current_vpc_subnets
 - name: gather facts security groups 
   ec2_group_facts:
     filters:

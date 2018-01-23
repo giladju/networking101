@@ -1,6 +1,7 @@
 ---
 envname: networking101
 region: eu-central-1
+ami: ami-af79ebc0
 availability_zone: eu-central-1a
 cidr_block: 172.39.0.0/16
 subnets:
@@ -16,4 +17,9 @@ instances:
             volume_size: 8
       groups:
         - allow_ssh
+        - allow_vpc
       loadbalancer: True
+      userdata: |
+        #!/bin/bash
+        apt update
+        apt install -y apache2
