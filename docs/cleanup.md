@@ -10,7 +10,6 @@
 - name: Delete subnets
 - name: Delete routing tables
 - name: Delete network interfaces
-- name: Delete nat gateway
 - name: Delete internet gateway
 - name: Delete VPC
 - name: Deregister Elastic IP
