@@ -1,9 +1,15 @@
 ---
-- name: Create SSH keypair
+- name: Create SSH keypair Jump
   ec2_key:
     region: '{{ region }}'
-    name: 'ansible-{{ envname }}'
-    key_material: '{{ public_key }}'
+    name: 'ansible-{{ envname }}-jump'
+    key_material: '{{ public_key_jump }}'
+    state: present
+- name: Create SSH keypair Web
+  ec2_key:
+    region: '{{ region }}'
+    name: 'ansible-{{ envname }}-web'
+    key_material: '{{ public_key_web }}'
     state: present
 - name: get vpcs facts
   ec2_vpc_net_facts:
@@ -34,7 +40,7 @@
   with_items: '{{ instances }}'
   ec2:
     region: '{{ region }}'
-    keypair: 'ansible-{{ envname }}'
+    keypair: '{{ item.key }}'
     instance_type: '{{ item.type }}'
     image: '{{ item.image|default(ami) }}'
     groups: '{{ item.groups|default(["allow_vpc"]) }}'

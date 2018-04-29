@@ -9,6 +9,7 @@ subnets:
     private: 172.39.200.0/24
 instances:
     - role: webserver
+      key: ansible-key-web
       subnet: private
       type: t2.micro
       count: 1
@@ -25,6 +26,7 @@ instances:
         apt update
         apt install -y apache2
     - role: bastion
+      key: ansible-key-jump
       subnet: public
       type: t2.micro
       count: 1
