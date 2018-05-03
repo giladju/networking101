@@ -1,0 +1,40 @@
+---
+envname: net101-team2
+region: eu-central-1
+ami: ami-af79ebc0
+availability_zone: eu-central-1a
+cidr_block: 172.40.0.0/16
+subnets:
+    public: 172.40.100.0/24
+    private: 172.40.200.0/24
+instances:
+    - role: webserver
+      key: ansible-key-web
+      subnet: private
+      type: t2.micro
+      count: 1
+      volumes:
+          - device_name: /dev/sda1
+            volume_size: 8
+      groups:
+        - allow_ssh
+        - allow_vpc
+      loadbalancer: True
+      external_ip: 'False' 
+      userdata: |
+        #!/bin/bash
+        apt update
+        apt install -y apache2
+    - role: bastion
+      key: ansible-key-jump
+      subnet: public
+      type: t2.micro
+      count: 1
+      volumes:
+          - device_name: /dev/sda1
+            volume_size: 8
+      groups:
+        - allow_ssh
+        - allow_vpc
+      external_ip: 'True' 
+      userdata: |

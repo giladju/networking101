@@ -1,5 +1,5 @@
 ---
-envname: networking101
+envname: net101-team1
 region: eu-central-1
 ami: ami-af79ebc0
 availability_zone: eu-central-1a
