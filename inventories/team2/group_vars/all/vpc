@@ -1,5 +1,6 @@
 ---
-envname: net101-team2
+team: team2
+envname: "net101-{{ team }}"
 region: eu-central-1
 ami: ami-af79ebc0
 availability_zone: eu-central-1a
@@ -9,7 +10,7 @@ subnets:
     private: 172.40.200.0/24
 instances:
     - role: webserver
-      key: ansible-key-web
+      key: "ansible-{{ envname }}-web"
       subnet: private
       type: t2.micro
       count: 1
@@ -26,7 +27,7 @@ instances:
         apt update
         apt install -y apache2
     - role: bastion
-      key: ansible-key-jump
+      key: "ansible-{{ envname }}-jump"
       subnet: public
       type: t2.micro
       count: 1
