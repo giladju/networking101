@@ -10,7 +10,7 @@ subnets:
     private: 172.41.200.0/24
 instances:
     - role: webserver
-      key: "ansible-{{ envname }}-web"
+      key: "ansible-{{ envname }}-jump"
       subnet: private
       type: t2.micro
       count: 1

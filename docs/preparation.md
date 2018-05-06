@@ -1,8 +1,10 @@
 # Preparation
 
-### Replace the public key  
+### Set Vault password file
 
-Note that the public key in `inventory/group_vars/all/vars` should be replaced with your public key in order to allow access the bastion server
+```
+export ANSIBLE_VAULT_PASSWORD_FILE=$HOME/.ansible-vault-pw.txt'
+```
 
 ### Setup the VPC
 
@@ -11,7 +13,7 @@ Note that the public key in `inventory/group_vars/all/vars` should be replaced w
   - VPC CIDR is available 
 
 ```
-ansible-playbook playbooks/vpc-present.yml
+ansible-playbook -i inventories/teamN playbooks/vpc-present.yml
 ```
 
 **Note:** some of the tasks in the playbook take a few minutes to complete - prepare the vpc ahead of the demo
@@ -19,10 +21,11 @@ ansible-playbook playbooks/vpc-present.yml
 ### Setup the Load Balancer
 
 ```
-ansible-playbook playbooks/vpc-lb.yml
+ansible-playbook -i inventories/teamN playbooks/vpc-lb.yml
 ```
+
 ### Create Instances and attached web server to ELB
 
 ```
-ansible-playbook playbooks/create-server-attach-to-elb.yml
+ansible-playbook -i inventories/teamN playbooks/create-server-attach-to-elb.yml
 ```
