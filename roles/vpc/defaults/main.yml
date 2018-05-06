@@ -32,10 +32,10 @@ security_groups:
     rules:
       - proto: all
         cidr_ip: "{{ office_ip }}/32" # office IP.
-  - description: Web load balancer
-    name: web_lb
-    rules:
-      - proto: tcp
-        cidr_ip: 0.0.0.0/0
-        from_port: 80
-        to_port: 80
+#  - description: Web load balancer
+#    name: web_lb
+#    rules:
+#      - proto: tcp
+#        cidr_ip: 0.0.0.0/0
+#        from_port: 80
+#        to_port: 80
