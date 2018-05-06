@@ -8,12 +8,12 @@ routing_tables:
         gateway_id: local
       - dest: "0.0.0.0/0"
         gateway_id: "{{ tikal_current_vpc_igw_facts.gateway_id }}"
-  - subnet: private
-    routes:
-      - dest: "{{ cidr_block }}"
-        gateway_id: local
-      - dest: "0.0.0.0/0"
-        gateway_id: "{{ nat_gateway.nat_gateway_id }}"
+#  - subnet: private
+#    routes:
+#      - dest: "{{ cidr_block }}"
+#        gateway_id: local
+#      - dest: "0.0.0.0/0"
+#        gateway_id: "{{ nat_gateway.nat_gateway_id }}"
 security_groups:
   - description: Allow all from this VPC
     name: allow_vpc
