@@ -34,7 +34,7 @@
     #security_group_names: [web_lb, allow_vpc]
     # changed to one below because of a bug in Ansible 2.1.x.
     security_group_ids:
-      - '{{ (tikal_ec2_security_groups.security_groups|selectattr("group_name", "equalto", "web_lb")|first).group_id }}'
+#      - '{{ (tikal_ec2_security_groups.security_groups|selectattr("group_name", "equalto", "web_lb")|first).group_id }}'
       - '{{ (tikal_ec2_security_groups.security_groups|selectattr("group_name", "equalto", "allow_vpc")|first).group_id }}'
     wait: True
     listeners:
