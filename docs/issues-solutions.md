@@ -12,7 +12,6 @@ Main goal:
 
 * Able to open Apache Default page on Load Balancer
 
-
 # The *current* situation
 
 Each Team gets:

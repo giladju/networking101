@@ -1,5 +1,7 @@
 # Preparation
 
+## System setup - workshop Admin 
+
 ### Set Vault password file
 
 ```
@@ -29,3 +31,23 @@ ansible-playbook -i inventories/teamN playbooks/vpc-lb.yml
 ```
 ansible-playbook -i inventories/teamN playbooks/create-server-attach-to-elb.yml
 ```
+
+## Get Teams up to speed - workshop Admin
+
+### Setup at-hoc whatsapp / telegram / slack teams 
+
+Appoint team leaders
+
+Send Login URL: https://tikalk.signin.aws.amazon.com/console
+
+**NOTE!** consider separate AWS account for training
+
+Send AWS users:
+
+* net101-user1 
+* net101-user2 
+* net101-user3 
+* net101-user4 
+* net101-user5 
+
+And passwords
