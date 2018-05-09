@@ -12,6 +12,8 @@ Main goal:
 
 * Able to open Apache Default page on Load Balancer
 
+Bonus - setup Jump host
+
 # The *current* situation
 
 Each Team gets:
@@ -19,6 +21,18 @@ Each Team gets:
 1. URL to LB 
 2. External IP of Bastion server
 3. Admin Private Key 
+
+# Start figuring out what is what
+
+1. What is the URL of my Load Balancer?
+2. How do I see that the ELB is up?
+3. Why won't it show me a web page?
+4. How do I access the bastion?
+5. How do I allow a developer to access the Webserver, without having private keys cloud servers?
+6. why can't I update the software on the web server 
+7. why isn't the ELB able to access the WebServer? 
+8. How do I fix this?
+9. How do I know the system is up? 
 
 # Step 1: ssh as Admin to bastion
 

@@ -1,9 +1,9 @@
 ---
 team: team4
 envname: "net101-{{ team }}"
-region: eu-central-1
+region: us-east-2
 ami: ami-af79ebc0
-availability_zone: eu-central-1a
+availability_zone: us-east-2a
 cidr_block: 172.42.0.0/16
 subnets:
     public: 172.42.100.0/24
